@@ -2,7 +2,8 @@ import search
 import math
 import utils
 
-id="No numbers - I'm special!"
+id=314096389
+# link to chatGPT chat - https://chat.openai.com/share/40894136-64f7-4f5a-ab2c-9bae997c4a43
 
 """ Rules """
 RED = 20
@@ -35,10 +36,15 @@ class PacmanProblem(search.Problem):
         utils.raiseNotDefined()
     def goal_test(self, state):
         """ given a state, checks if this is the goal state, compares to the created goal state"""
+        '''note - code ouptputed by chatGPT after it was given context and promt of the required task, in this case goal_test'''
+        # Flatten the 2D matrix 'state' into a 1D list using list comprehension
+        flattened_state = [cell for row in state for cell in row]
+         # Check if the value '11' (representing a pill) is not present in the flattened list
+        return 11 not in flattened_state
         utils.raiseNotDefined()
         
     def h(self, node):
-        """ This is the heuristic. It get a node (not a state)
+        """ This is the heuristic. It gets a node (not a state)
         and returns a goal distance estimate"""
         utils.raiseNotDefined()
 
