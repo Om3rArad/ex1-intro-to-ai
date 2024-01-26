@@ -16,6 +16,8 @@ G_B = 3
 G_Y = 4
 G_G = 5
 PAC = 7
+EMPTY = 10
+PILL = 11
 
 class PacmanProblem(search.Problem):
     """This class implements a pacman problem"""
@@ -47,6 +49,16 @@ class PacmanProblem(search.Problem):
                         break
         
         return current_position
+    
+    def get_current_location(self, state, entity):
+        """Find location of the entity that has moved in the state"""
+        for i, row in enumerate(state):
+            for j, cell in enumerate(row):
+                if cell == entity:
+                    current_position = (i, j)
+                    break
+        
+        return current_position
 
     def calculate_new_position(self, state, entity, movement):
         """Calculates new position for the given entity based on the movement"""
@@ -57,7 +69,8 @@ class PacmanProblem(search.Problem):
         if (current_position):
             new_position = (current_position[0] + movement[0], current_position[1] + movement[1])
 
-            return new_position
+            if (self.is_valid_position(new_position, state)):
+                return new_position
         
         return None
 
@@ -76,34 +89,12 @@ class PacmanProblem(search.Problem):
 
         return False
     
-    def find_best_move(self, state, ghost_entity):
-        """Find best movement direction for current ghost based on minimum Manhattan distance to Pacman"""
-
-        # Get locations of Pacman and the ghost
-        pacman_position = self.locations[PAC]
-        ghost_position = self.get_location(state, ghost_entity)
-
-        # Define possible movements for the ghost
-        movements = utils.orientations
-
-        # Calculate Manhattan distances for each possible movement
-        distances = {}
-        for move in movements:
-            utils.raiseNotDefined()
-            new_position = self.calculate_new_position(state, ghost_position, move)
-            distances[move] = self.manhattan_distance(new_position, pacman_position)
-
-        # Find the movement with the minimum distance (ties broken in the order: right, down, left, up)
-        best_move = min(distances, key=lambda move: (distances[move], movements.keys().index(move)))
-
-        return best_move
-
-
     def print_state(self, state):
         for row in state:
             print (row)
+        print ()
     
-    def update_state(self, state, new_position, entity):
+    def old_update_state(self, state, new_position, entity):
         def update_row(row, position, value):
             return [value if idx == position else cell for idx, cell in enumerate(row)]
 
@@ -111,116 +102,108 @@ class PacmanProblem(search.Problem):
         old_position = self.get_location(state, entity)
         for num_row, cells_row in enumerate(state):
             if num_row == old_position[0] and entity == PACMAN:
-                cells_row = update_row(cells_row, old_position[1], 10)
+                cells_row = update_row(cells_row, old_position[1], EMPTY)
             if num_row == new_position[0]:
                 if cells_row[new_position[1]] == 11:
                     print("PACMAN EAT")
-                self.locations[self.idx(entity)] = new_position
+                # self.locations[self.idx(entity)] = new_position
                 cells_row = update_row(cells_row, new_position[1], PACMAN)
             result.append(cells_row)
 
         return tuple(result)
-
-    def successor(self, state):
-        """Generates the successor state"""
-
-        # Define possible movements for entities
-        movements = utils.orientations
-        # movements = {'R': (0, 1), 'D': (1, 0), 'L': (0, -1), 'U': (-1, 0)}
-
-        # Initialize an empty list to store valid successor states
-        valid_successors = []
-
-        # Iterate over possible movements for Pacman
-        for move_pacman in movements:
-            # Calculate new position for Pacman
-            new_pacman_position = self.calculate_new_position(state, PACMAN, move_pacman)
-            
-            # Check if the new position is within bounds and not a wall
-            print('validating pacman with ', new_pacman_position)
-            if self.is_valid_position(new_pacman_position, state):
-                print('valid')
-                # Iterate over all ghost entities in the state
-                for ghost_entity in [RED]:  # Add more ghosts as needed
-                    print('ghost ', ghost_entity)
-                    # Iterate over possible movements for the current ghost
-                    for move_ghost in movements:
-                        # Calculate new position for the current ghost
-                        new_ghost_position = self.calculate_new_position(state, ghost_entity, move_ghost)
-                        
-                        # Check if the new position is within bounds and not a wall
-                        print(' validating ghost with ', new_ghost_position)
-                        if self.is_valid_position(new_ghost_position, state):
-                            print('valid')
-                            valid_successors.append((new_pacman_position, new_ghost_position))
-                
-                
-                        print("     valid_successors: ", valid_successors)
-
-
-        return valid_successors
     
-    def successor(self, state):
-        """Generates the successor state"""
+    def update_state(self, state, new_position, entity):
+        def update_row(row, position, value):
+            return tuple(value if idx == position else cell for idx, cell in enumerate(row))
 
-        # Define possible movements for entities
+        result = []
+        old_position = self.get_location(state, entity)
+        for num_row, cells_row in enumerate(state):
+            # Ghost does not change slots previous value (X0 -> 10, X1 -> 11)
+            if num_row == old_position[0]:
+                # Pacman always leaves behind an emply slot (10)
+                if entity == PACMAN or entity%10 == 0:
+                    cells_row = update_row(cells_row, old_position[1], EMPTY)
+                else:            
+                    cells_row = update_row(cells_row, old_position[1], PILL)
+
+            if num_row == new_position[0]:
+                pill = 0
+                if cells_row[new_position[1]] == PILL:
+                    if entity == PACMAN:
+                        pill = 0
+                        print("PACMAN EAT")
+                    else:
+                        pill = 1
+
+                cells_row = update_row(cells_row, new_position[1], entity + pill)
+                # self.locations[self.idx(entity)] = new_position
+
+            result.append(cells_row)
+
+        return tuple(result)
+    
+    def manhattan_distance(self, position1, position2):
+        """Calculate the Manhattan distance between two positions."""
+        return abs(position1[0] - position2[0]) + abs(position1[1] - position2[1])
+  
+    def find_best_move(self, state, ghost_entity, pacman_position):
+        """Find best movement direction for current ghost based on minimum Manhattan distance to Pacman"""
+
+        # Get locations of Pacman and the ghost
+        # pacman_position = self.get_current_location(state, PACMAN)
+        ghost_position = self.get_location(state, ghost_entity)
+
+        # Define possible movements for the ghost
         movements = utils.orientations
+        movements = [(0, 1), (1, 0), (0, -1), (-1, 0)]
 
-        # Iterate over possible movements for Pacman
-        for move_pacman in movements:
+        # Calculate Manhattan distances for each possible movement
+        distances = {}
+        for move in movements:
+            new_ghost_position = self.calculate_new_position(state, ghost_entity, move)
+            if (new_ghost_position):
+                distances[move] = self.manhattan_distance(new_ghost_position, pacman_position)
 
-            # Calculate new state for Pacman movement
-            new_state_pacman = self.result(state, (PACMAN, move_pacman))
+        # Find the movement with the minimum distance (ties broken in the order: right, down, left, up)
+        best_move = min(distances, key=lambda move: (distances[move], movements.index(move)))
 
-            # Initialize a variable to store pacman's movement
-            pacman_movement = move_pacman
-
-            # Calculate new position for Pacman
-            new_pacman_position = self.calculate_new_position(state, PACMAN, move_pacman)
-
-            # Check if the new position is within bounds and not a wall
-            if self.is_valid_position(new_pacman_position, state):
-                # Iterate over all ghost entities in the state
-                for ghost_entity in [RED]:  # Add more ghosts as needed
-                    # Iterate over possible movements for the current ghost
-                    for move_ghost in movements:
-                        # Calculate new position for the current ghost
-                        new_ghost_position = self.calculate_new_position(state, ghost_entity, move_ghost)
-
-                        # Check if the new position is within bounds and not a wall
-                        if self.is_valid_position(new_ghost_position, state):
-                            # Yield the successor state as an (action, state) pair
-                            yield (new_pacman_position, new_ghost_position)
+        return best_move
 
     def successor(self, state):
         """Generates the successor state"""
 
         # Define possible movements for entities
-        # movements = utils.orientations
         movements = {'R': (0, 1), 'D': (1, 0), 'L': (0, -1), 'U': (-1, 0)}
 
         # Iterate over possible movements for Pacman
         for move_pacman in movements:
             # Calculate new state for Pacman movement
-            new_state_pacman = self.result(state, (PACMAN, movements[move_pacman]))
+            new_state_tuple = self.result(state, (PACMAN, movements[move_pacman]))
             
-            if (not new_state_pacman):
+            if (not new_state_tuple):
                 continue
+            else:
+                new_state_pacman, new_position_pacman = new_state_tuple
 
-            self.print_state(new_state_pacman);
+
+            # self.print_state(new_state_pacman);
 
             # Initialize a variable to store pacman's movement 
             movement = move_pacman
+            print(movement)
 
             # Iterate over all ghost entities in the state
             for ghost_entity in [RED]:
                 # Find the best movement direction for the current ghost
-                best_move_ghost = self.find_best_move(state, ghost_entity)
+                best_move_ghost = self.find_best_move(new_state_pacman, ghost_entity, new_position_pacman)
 
                 # Calculate new state for Ghost movement
                 new_state_ghost = self.result(new_state_pacman, (ghost_entity, best_move_ghost))
 
             # Yield the tuple (action, state) for this round with new entities positions
+            
+            self.print_state(new_state_ghost);
             yield (movement, new_state_ghost)
 
 
@@ -233,14 +216,14 @@ class PacmanProblem(search.Problem):
         new_position = self.calculate_new_position(state, entity, orientation)
 
         # Check if the new position is within bounds and not a wall
-        if self.is_valid_position(new_position, state):
+        if (new_position):
             # Update the state based on the moved entity
             if entity == PACMAN:
                 # Pacman leaves behind an emply slot ('10')
-                new_state = self.update_state(state, new_position, PACMAN)
+                new_state = (self.update_state(state, new_position, PACMAN), new_position)
             else:
                 # Ghost does not change slots old value
-                new_state = tuple([cell if pos != new_position else cell for pos, cell in enumerate(state)])
+                new_state = self.update_state(state, new_position, entity)
 
             return new_state
         else:
