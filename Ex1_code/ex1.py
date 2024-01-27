@@ -125,7 +125,7 @@ class PacmanProblem(search.Problem):
                 # Pacman always leaves behind an emply slot (10)
                 if entity == PACMAN or old_value%10 == 0:
                     cells_row = update_row(cells_row, old_position[1], EMPTY)
-                else:            
+                else:
                     cells_row = update_row(cells_row, old_position[1], PILL)
 
             if num_row == new_position[0]:
@@ -136,15 +136,16 @@ class PacmanProblem(search.Problem):
                         pill = 0
                         print("PACMAN EAT")
                     else:
-                        # Ghost leaves behined a pill
+                        # Ghost does not eat a pill (11 -> X1)
                         pill = 1
                 elif cells_row[new_position[1]] == PACMAN: 
-                    # Pacman in eaten by a ghost
+                    # Pacman gets eaten by a ghost (88)
                     cells_row = update_row(cells_row, new_position[1], EATEN)
+                    result.append(cells_row)
+                    self.dead_end = True
                     continue
                 
                 cells_row = update_row(cells_row, new_position[1], entity + pill)
-                # self.locations[self.idx(entity)] = new_position
 
             result.append(cells_row)
 
@@ -156,7 +157,7 @@ class PacmanProblem(search.Problem):
   
     def find_best_move(self, state, ghost_entity, pacman_position):
         """Find best movement direction for current ghost based on minimum Manhattan distance to Pacman"""
-
+        best_move = None
         # Get locations of Pacman and the ghost
         pacman_position = self.get_current_location(state, PACMAN)
         ghost_position = self.get_current_location(state, ghost_entity)
@@ -172,8 +173,9 @@ class PacmanProblem(search.Problem):
             if (new_ghost_position):
                 distances[move] = self.manhattan_distance(new_ghost_position, pacman_position)
 
-        # Find the movement with the minimum distance (ties broken in the order: right, down, left, up)
-        best_move = min(distances, key=lambda move: (distances[move], movements.index(move)))
+        if(distances):
+            # Find the movement with the minimum distance (ties broken in the order: right, down, left, up)
+            best_move = min(distances, key=lambda move: (distances[move], movements.index(move)))
 
         return best_move
 
@@ -194,23 +196,26 @@ class PacmanProblem(search.Problem):
             if (not new_state_tuple):
                 continue
             else:
-                new_state_pacman, new_position_pacman = new_state_tuple
+                new_state, new_position_pacman = new_state_tuple
 
             # Initialize a variable to store pacman's movement 
             movement = move_pacman
             print(movement)
 
             # Iterate over all ghost entities in the state
-            for ghost_entity in [RED]:
+            for ghost_entity in [RED, BLUE, YELLOW, GREEN]:
                 # Find the best movement direction for the current ghost
-                best_move_ghost = self.find_best_move(new_state_pacman, ghost_entity, new_position_pacman)
+                best_move_ghost = self.find_best_move(new_state, ghost_entity, new_position_pacman)
 
                 # Calculate new state for Ghost movement
-                new_state_ghost = self.result(new_state_pacman, (ghost_entity, best_move_ghost))
+                new_state = self.result(new_state, (ghost_entity, best_move_ghost))
+                if (self.dead_end):
+                    self.dead_end = False
+                    break
 
             # Yield the tuple (action, state) for this round with new entities positions
-            if (self.get_current_location(new_state_ghost, PACMAN)):
-                valid_successors.append((movement, new_state_ghost))
+            if (self.get_current_location(new_state, PACMAN)):
+                valid_successors.append((movement, new_state))
             
             # yield (movement, new_state_ghost)
         self.print_state(state)
@@ -221,6 +226,11 @@ class PacmanProblem(search.Problem):
         """given state and an action and return a new state"""
         # Extract entity and orientation from the action
         entity, orientation = move
+
+        # Check if the provided move is a valid orientation
+        if orientation not in utils.orientations:
+            # Unknown action, return the current state
+            return state
 
         # Calculate the new position for the entity based on the orientation
         new_position = self.calculate_new_position(state, entity, orientation)
