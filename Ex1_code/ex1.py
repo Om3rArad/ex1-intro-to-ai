@@ -41,20 +41,17 @@ class PacmanProblem(search.Problem):
 
         if (not current_position):
             # Handle the case where locations is not initialized
-            for i, row in enumerate(state):
-                for j, cell in enumerate(row):
-                    if cell == entity:
-                        current_position = (i, j)
-                        self.locations[self.idx(entity)] = current_position
-                        break
-        
+            current_position = self.get_current_location(state, entity)
+            self.locations[self.idx(entity)]
+
         return current_position
     
     def get_current_location(self, state, entity):
         """Find location of the entity that has moved in the state"""
+        current_position = None
         for i, row in enumerate(state):
             for j, cell in enumerate(row):
-                if cell == entity:
+                if self.idx(cell) == self.idx(entity):
                     current_position = (i, j)
                     break
         
@@ -63,7 +60,7 @@ class PacmanProblem(search.Problem):
     def calculate_new_position(self, state, entity, movement):
         """Calculates new position for the given entity based on the movement"""
         # Find location of the entity in the state
-        current_position = self.get_location(state, entity)
+        current_position = self.get_current_location(state, entity)
 
         # Calculate the new position based on the movement
         if (current_position):
@@ -81,11 +78,12 @@ class PacmanProblem(search.Problem):
             # Extract the row and column indices from the position tuple
             row, col = position
 
+            invalid_positions = [20,21,30,31,40,41,50,51,99]
+
             # Check if the position is within the bounds of the state
             if 0 <= row < len(state) and 0 <= col < len(state[0]):
-                return True;
                 # Check if the position does not correspond to a wall (value 99)
-                # return state[row][col] != 99
+                return state[row][col] not in invalid_positions
 
         return False
     
@@ -99,7 +97,7 @@ class PacmanProblem(search.Problem):
             return [value if idx == position else cell for idx, cell in enumerate(row)]
 
         result = []
-        old_position = self.get_location(state, entity)
+        old_position = self.get_current_location(state, entity)
         for num_row, cells_row in enumerate(state):
             if num_row == old_position[0] and entity == PACMAN:
                 cells_row = update_row(cells_row, old_position[1], EMPTY)
@@ -117,12 +115,13 @@ class PacmanProblem(search.Problem):
             return tuple(value if idx == position else cell for idx, cell in enumerate(row))
 
         result = []
-        old_position = self.get_location(state, entity)
+        old_position = self.get_current_location(state, entity)
+        old_value = state[old_position[0]][old_position[1]]
         for num_row, cells_row in enumerate(state):
             # Ghost does not change slots previous value (X0 -> 10, X1 -> 11)
             if num_row == old_position[0]:
                 # Pacman always leaves behind an emply slot (10)
-                if entity == PACMAN or entity%10 == 0:
+                if entity == PACMAN or old_value%10 == 0:
                     cells_row = update_row(cells_row, old_position[1], EMPTY)
                 else:            
                     cells_row = update_row(cells_row, old_position[1], PILL)
@@ -135,7 +134,10 @@ class PacmanProblem(search.Problem):
                         print("PACMAN EAT")
                     else:
                         pill = 1
-
+                elif cells_row[new_position[1]] == PACMAN: 
+                    cells_row = update_row(cells_row, new_position[1], 88)
+                    continue
+                
                 cells_row = update_row(cells_row, new_position[1], entity + pill)
                 # self.locations[self.idx(entity)] = new_position
 
@@ -151,8 +153,8 @@ class PacmanProblem(search.Problem):
         """Find best movement direction for current ghost based on minimum Manhattan distance to Pacman"""
 
         # Get locations of Pacman and the ghost
-        # pacman_position = self.get_current_location(state, PACMAN)
-        ghost_position = self.get_location(state, ghost_entity)
+        pacman_position = self.get_current_location(state, PACMAN)
+        ghost_position = self.get_current_location(state, ghost_entity)
 
         # Define possible movements for the ghost
         movements = utils.orientations
@@ -172,7 +174,10 @@ class PacmanProblem(search.Problem):
 
     def successor(self, state):
         """Generates the successor state"""
-
+        
+        # Initialize an empty list to store valid successor states
+        valid_successors = []
+        
         # Define possible movements for entities
         movements = {'R': (0, 1), 'D': (1, 0), 'L': (0, -1), 'U': (-1, 0)}
 
@@ -185,9 +190,6 @@ class PacmanProblem(search.Problem):
                 continue
             else:
                 new_state_pacman, new_position_pacman = new_state_tuple
-
-
-            # self.print_state(new_state_pacman);
 
             # Initialize a variable to store pacman's movement 
             movement = move_pacman
@@ -202,10 +204,13 @@ class PacmanProblem(search.Problem):
                 new_state_ghost = self.result(new_state_pacman, (ghost_entity, best_move_ghost))
 
             # Yield the tuple (action, state) for this round with new entities positions
+            if (self.get_current_location(new_state_ghost, PACMAN)):
+                valid_successors.append((movement, new_state_ghost))
             
-            self.print_state(new_state_ghost);
-            yield (movement, new_state_ghost)
-
+            # yield (movement, new_state_ghost)
+        self.print_state(state)
+        # print(valid_successors)
+        return valid_successors
 
     def result(self, state, move):
         """given state and an action and return a new state"""
@@ -238,9 +243,9 @@ class PacmanProblem(search.Problem):
         """ given a state, checks if this is the goal state, compares to the created goal state"""
         '''note - code ouptputed by chatGPT after it was given context and promt of the required task, in this case goal_test'''
         # Flatten the 2D matrix 'state' into a 1D list using list comprehension
-        flattened_state = [cell for row in state for cell in row]
+        flattened_state = [cell % 10 for row in state for cell in row]
          # Check if the value '11' (representing a pill) is not present in the flattened list
-        return 11 not in flattened_state
+        return 1 not in flattened_state
         
     def h(self, node):
         """ This is the heuristic. It gets a node (not a state)
