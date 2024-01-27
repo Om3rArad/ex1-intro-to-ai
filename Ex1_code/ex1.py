@@ -11,6 +11,8 @@ BLUE = 30
 YELLOW = 40
 GREEN = 50
 PACMAN = 77
+EATEN = 88
+WALL = 99
 G_R = 2
 G_B = 3
 G_Y = 4
@@ -130,12 +132,15 @@ class PacmanProblem(search.Problem):
                 pill = 0
                 if cells_row[new_position[1]] == PILL:
                     if entity == PACMAN:
+                        # Pacman eats a pill
                         pill = 0
                         print("PACMAN EAT")
                     else:
+                        # Ghost leaves behined a pill
                         pill = 1
                 elif cells_row[new_position[1]] == PACMAN: 
-                    cells_row = update_row(cells_row, new_position[1], 88)
+                    # Pacman in eaten by a ghost
+                    cells_row = update_row(cells_row, new_position[1], EATEN)
                     continue
                 
                 cells_row = update_row(cells_row, new_position[1], entity + pill)
