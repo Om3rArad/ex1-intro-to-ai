@@ -1,6 +1,7 @@
 import search
 import math
 import utils
+import state
 
 id=314096389
 # link to chatGPT chat - https://chat.openai.com/share/40894136-64f7-4f5a-ab2c-9bae997c4a43
@@ -36,6 +37,8 @@ class PacmanProblem(search.Problem):
 
         self.locations = dict.fromkeys((7, 2, 3, 4, 5))
         self.dead_end = False
+        self.pacman_eat = True
+        self.distance_to_goal = 1
         
         """ Constructor only needs the initial state.
         Don't forget to set the goal or implement the goal test"""
@@ -126,8 +129,6 @@ class PacmanProblem(search.Problem):
 
         return tuple(result)
     
-    # Original code before optimization by ChatGPT:
-    #
     # def update_state(self, state, new_position, entity):
     #     def update_row(row, position, value):
     #         return tuple(value if idx == position else cell for idx, cell in enumerate(row))
@@ -299,7 +300,6 @@ class PacmanProblem(search.Problem):
                 return None
             else:
                 return state
-
         
     def goal_test(self, state):
         """ given a state, checks if this is the goal state, compares to the created goal state"""
@@ -310,10 +310,43 @@ class PacmanProblem(search.Problem):
         return 1 not in flattened_state and 8 not in flattened_state
         
     def h(self, node):
-        return 1;
-        """ This is the heuristic. It gets a node (not a state)
-        and returns a goal distance estimate"""
-        utils.raiseNotDefined()
+        """Heuristic function estimating the distance to the goal."""
+        # Assuming the node has a 'state' attribute containing the current state
+        state = node.state
+
+        # Find the positions of Pacman (77) and pills (11, X1)
+        pacman_position = None
+        pill_positions = []
+
+        for i, row in enumerate(state):
+            for j, cell in enumerate(row):
+                if cell == 77:
+                    pacman_position = (i, j)
+                elif str(cell).endswith('1'):  # Check if the cell ends with '1' (representing a pill)
+                    pill_positions.append((i, j))
+
+        if not pill_positions or not pacman_position:
+            # No pills found, return 0 as the distance estimate
+            return 0
+
+        # Calculate the Manhattan distances
+        distances_to_pills = [(pill, abs(pacman_position[0] - pill[0]) + abs(pacman_position[1] - pill[1])) for pill in pill_positions]
+
+        if not distances_to_pills:
+            # No pills found, return 0 as the distance estimate
+            return 0
+
+        # Find the two furthest pills
+        furthest_pills = sorted(distances_to_pills, key=lambda x: x[1], reverse=True)[:2]
+
+        if (len(furthest_pills) < 2):
+            # If there is only one furthest pill, calculate the distance from that pill to Pacman
+            distance_estimate = 0
+        else:
+            # Calculate the distance estimate as the sum of the distance between the two furthest pills and the minimum distance to each of them to pacman
+            distance_estimate = abs(furthest_pills[0][0][0] - furthest_pills[1][0][0]) + abs(furthest_pills[0][0][1] - furthest_pills[1][0][1]) + min(furthest_pills[0][1], furthest_pills[1][1])
+
+        return distance_estimate
 
 def create_pacman_problem(game):
     print ("<<create_pacman_problem")
